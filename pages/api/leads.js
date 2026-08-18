@@ -64,7 +64,7 @@ export default async function handler(req, res) {
           notes: notes || '',
           is_existing: is_existing ? 'true' : 'false',
           contacts: JSON.stringify(contacts),
-          tags: tags ? JSON.stringify(tags) : null,
+          tags: tags && tags.length > 0 ? JSON.stringify(tags) : null,
           created_at: now,
           updated_at: now,
         },
@@ -89,10 +89,11 @@ export default async function handler(req, res) {
       const safeStatus = escapeSql(status || 'need-followup');
       const safeNotes = escapeSql(notes || '');
       const safeContacts = escapeSql(JSON.stringify(contacts || []));
-      const safeTags = tags ? escapeSql(JSON.stringify(tags)) : 'NULL';
+      const tagsJson = tags && tags.length > 0 ? JSON.stringify(tags) : '[]';
+      const safeTags = escapeSql(tagsJson);
       const safeIsExisting = is_existing ? 'true' : 'false';
 
-      // First try to update
+      // Use UPDATE to modify the record
       const updateSql = `
         UPDATE \`${process.env.BIGQUERY_PROJECT_ID}.${process.env.BIGQUERY_DATASET || 'travel_cat'}.superzoo_leads\`
         SET
@@ -100,45 +101,13 @@ export default async function handler(req, res) {
           notes = '${safeNotes}',
           is_existing = '${safeIsExisting}',
           contacts = '${safeContacts}',
-          tags = ${safeTags},
+          tags = '${safeTags}',
           updated_at = CURRENT_TIMESTAMP()
         WHERE company_name = '${safeCompanyName}'
       `;
 
-      try {
-        await queryBigQuery(updateSql);
-        res.status(200).json({ success: true, company_name });
-      } catch (updateError) {
-        // If update fails (e.g., streaming buffer), fall back to delete + insert
-        console.log('Update failed, trying delete + insert:', updateError.message);
-        
-        try {
-          const deleteSQL = `
-            DELETE FROM \`${process.env.BIGQUERY_PROJECT_ID}.${process.env.BIGQUERY_DATASET || 'travel_cat'}.superzoo_leads\`
-            WHERE company_name = '${safeCompanyName}'
-          `;
-          await queryBigQuery(deleteSQL);
-        } catch (e) {
-          // Row might not exist yet, that's ok
-        }
-
-        const rows = [
-          {
-            company_id: `${company_name.toLowerCase().replace(/\s+/g, '-')}-${Date.now()}`,
-            company_name,
-            status: safeStatus,
-            notes: safeNotes,
-            is_existing: safeIsExisting,
-            contacts: safeContacts,
-            tags: safeTags === 'NULL' ? null : safeTags,
-            created_at: created_at || now,
-            updated_at: now,
-          },
-        ];
-
-        await insertBigQuery('superzoo_leads', rows);
-        res.status(200).json({ success: true, company_name });
-      }
+      await queryBigQuery(updateSql);
+      res.status(200).json({ success: true, company_name });
     } catch (error) {
       console.error('Failed to update lead:', error);
       res.status(500).json({ error: error.message });
