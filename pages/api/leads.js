@@ -11,6 +11,7 @@ export default async function handler(req, res) {
           notes,
           is_existing,
           contacts,
+          tags,
           created_at,
           updated_at
         FROM \`${process.env.BIGQUERY_PROJECT_ID}.${process.env.BIGQUERY_DATASET || 'travel_cat'}.superzoo_leads\`
@@ -29,8 +30,9 @@ export default async function handler(req, res) {
             status: f[2].v || 'need-followup',
             notes: f[3].v || '',
             isExisting: f[4].v === 'true' || f[4].v === true,
-            createdAt: f[6].v,
-            updatedAt: f[7].v,
+            tags: f[6].v ? JSON.parse(f[6].v) : [],
+            createdAt: f[7].v,
+            updatedAt: f[8].v,
           };
         });
       }
@@ -42,7 +44,7 @@ export default async function handler(req, res) {
     }
   } else if (req.method === 'POST') {
     try {
-      const { company_name, status, notes, is_existing, contacts } = req.body;
+      const { company_name, status, notes, is_existing, contacts, tags } = req.body;
 
       if (!company_name || !Array.isArray(contacts)) {
         return res.status(400).json({ error: 'company_name and contacts array required' });
@@ -57,6 +59,7 @@ export default async function handler(req, res) {
           notes: notes || '',
           is_existing: is_existing ? 'true' : 'false',
           contacts: JSON.stringify(contacts),
+          tags: tags ? JSON.stringify(tags) : null,
           created_at: now,
           updated_at: now,
         },
@@ -70,13 +73,12 @@ export default async function handler(req, res) {
     }
   } else if (req.method === 'PUT') {
     try {
-      const { company_name, status, notes } = req.body;
+      const { company_name, status, notes, tags } = req.body;
 
       if (!company_name) {
         return res.status(400).json({ error: 'company_name required' });
       }
 
-      // BigQuery doesn't support UPDATE from API, so we delete and reinsert
       const sql = `
         DELETE FROM \`${process.env.BIGQUERY_PROJECT_ID}.${process.env.BIGQUERY_DATASET || 'travel_cat'}.superzoo_leads\`
         WHERE company_name = '${company_name.replace(/'/g, "\\'")}'
@@ -84,7 +86,6 @@ export default async function handler(req, res) {
 
       await queryBigQuery(sql);
 
-      // Fetch the full record (client should pass it)
       const contacts = req.body.contacts || [];
       const is_existing = req.body.is_existing || false;
 
@@ -97,6 +98,7 @@ export default async function handler(req, res) {
           notes: notes || '',
           is_existing: is_existing ? 'true' : 'false',
           contacts: JSON.stringify(contacts),
+          tags: tags ? JSON.stringify(tags) : null,
           created_at: req.body.created_at || now,
           updated_at: now,
         },
