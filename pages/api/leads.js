@@ -1,5 +1,10 @@
 import { queryBigQuery, insertBigQuery } from '../../lib/bigquery-auth.js';
 
+function escapeSql(str) {
+  if (!str) return '';
+  return String(str).replace(/\\/g, '\\\\').replace(/'/g, "\\'").replace(/\n/g, ' ').substring(0, 1000);
+}
+
 export default async function handler(req, res) {
   if (req.method === 'GET') {
     try {
@@ -73,59 +78,67 @@ export default async function handler(req, res) {
     }
   } else if (req.method === 'PUT') {
     try {
-      const { company_name, status, notes, tags } = req.body;
+      const { company_name, status, notes, tags, is_existing, contacts, created_at } = req.body;
 
       if (!company_name) {
         return res.status(400).json({ error: 'company_name required' });
       }
 
-      const contacts = req.body.contacts || [];
-      const is_existing = req.body.is_existing || false;
       const now = new Date().toISOString();
+      const safeCompanyName = escapeSql(company_name);
+      const safeStatus = escapeSql(status || 'need-followup');
+      const safeNotes = escapeSql(notes || '');
+      const safeContacts = escapeSql(JSON.stringify(contacts || []));
+      const safeTags = tags ? escapeSql(JSON.stringify(tags)) : 'NULL';
+      const safeIsExisting = is_existing ? 'true' : 'false';
 
-      // Use MERGE to avoid streaming buffer conflicts
-      const mergeSql = `
-        MERGE INTO \`${process.env.BIGQUERY_PROJECT_ID}.${process.env.BIGQUERY_DATASET || 'travel_cat'}.superzoo_leads\` T
-        USING (
-          SELECT 
-            '${company_name.replace(/'/g, "\\'")}' as company_name
-        ) S
-        ON T.company_name = S.company_name
-        WHEN MATCHED THEN
-          UPDATE SET 
-            status = '${(status || 'need-followup').replace(/'/g, "\\'")}',
-            notes = '${(notes || '').replace(/'/g, "\\'")}',
-            is_existing = '${is_existing ? 'true' : 'false'}',
-            contacts = '${JSON.stringify(contacts).replace(/'/g, "\\'")}',
-            tags = ${tags ? `'${JSON.stringify(tags).replace(/'/g, "\\'")}'` : 'NULL'},
-            updated_at = CURRENT_TIMESTAMP()
-        WHEN NOT MATCHED THEN
-          INSERT (
-            company_id,
-            company_name,
-            status,
-            notes,
-            is_existing,
-            contacts,
-            tags,
-            created_at,
-            updated_at
-          )
-          VALUES (
-            '${company_name.toLowerCase().replace(/\s+/g, '-')}-${Date.now()}',
-            '${company_name.replace(/'/g, "\\'")}',
-            '${(status || 'need-followup').replace(/'/g, "\\'")}',
-            '${(notes || '').replace(/'/g, "\\'")}',
-            '${is_existing ? 'true' : 'false'}',
-            '${JSON.stringify(contacts).replace(/'/g, "\\'")}',
-            ${tags ? `'${JSON.stringify(tags).replace(/'/g, "\\'")}'` : 'NULL'},
-            CURRENT_TIMESTAMP(),
-            CURRENT_TIMESTAMP()
-          )
+      // First try to update
+      const updateSql = `
+        UPDATE \`${process.env.BIGQUERY_PROJECT_ID}.${process.env.BIGQUERY_DATASET || 'travel_cat'}.superzoo_leads\`
+        SET
+          status = '${safeStatus}',
+          notes = '${safeNotes}',
+          is_existing = '${safeIsExisting}',
+          contacts = '${safeContacts}',
+          tags = ${safeTags},
+          updated_at = CURRENT_TIMESTAMP()
+        WHERE company_name = '${safeCompanyName}'
       `;
 
-      await queryBigQuery(mergeSql);
-      res.status(200).json({ success: true, company_name });
+      try {
+        await queryBigQuery(updateSql);
+        res.status(200).json({ success: true, company_name });
+      } catch (updateError) {
+        // If update fails (e.g., streaming buffer), fall back to delete + insert
+        console.log('Update failed, trying delete + insert:', updateError.message);
+        
+        try {
+          const deleteSQL = `
+            DELETE FROM \`${process.env.BIGQUERY_PROJECT_ID}.${process.env.BIGQUERY_DATASET || 'travel_cat'}.superzoo_leads\`
+            WHERE company_name = '${safeCompanyName}'
+          `;
+          await queryBigQuery(deleteSQL);
+        } catch (e) {
+          // Row might not exist yet, that's ok
+        }
+
+        const rows = [
+          {
+            company_id: `${company_name.toLowerCase().replace(/\s+/g, '-')}-${Date.now()}`,
+            company_name,
+            status: safeStatus,
+            notes: safeNotes,
+            is_existing: safeIsExisting,
+            contacts: safeContacts,
+            tags: safeTags === 'NULL' ? null : safeTags,
+            created_at: created_at || now,
+            updated_at: now,
+          },
+        ];
+
+        await insertBigQuery('superzoo_leads', rows);
+        res.status(200).json({ success: true, company_name });
+      }
     } catch (error) {
       console.error('Failed to update lead:', error);
       res.status(500).json({ error: error.message });
@@ -138,9 +151,10 @@ export default async function handler(req, res) {
         return res.status(400).json({ error: 'company_name required' });
       }
 
+      const safeCompanyName = escapeSql(company_name);
       const sql = `
         DELETE FROM \`${process.env.BIGQUERY_PROJECT_ID}.${process.env.BIGQUERY_DATASET || 'travel_cat'}.superzoo_leads\`
-        WHERE company_name = '${company_name.replace(/'/g, "\\'")}'
+        WHERE company_name = '${safeCompanyName}'
       `;
 
       await queryBigQuery(sql);
