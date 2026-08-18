@@ -50,7 +50,7 @@ export default async function handler(req, res) {
     }
   } else if (req.method === 'POST') {
     try {
-      const { company_name, status, notes, is_existing, contacts, tags } = req.body;
+     const { company_name, status, notes, isExisting, contacts, tags } = req.body;
 
       if (!company_name || !Array.isArray(contacts)) {
         return res.status(400).json({ error: 'company_name and contacts array required' });
@@ -71,8 +71,27 @@ export default async function handler(req, res) {
         },
       ];
 
-      await insertBigQuery('superzoo_leads', rows);
-      res.status(201).json({ success: true, company_name });
+      const response = await fetch(
+  `https://www.googleapis.com/bigquery/v2/projects/${process.env.BIGQUERY_PROJECT_ID}/datasets/${process.env.BIGQUERY_DATASET || 'travel_cat'}/tables/superzoo_leads/insertAll`,
+  {
+    method: 'POST',
+    headers: {
+      'Authorization': `Bearer ${await getBigQueryAccessToken()}`,
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify({
+      rows: rows,
+      skipInvalidRows: false,
+    }),
+  }
+);
+
+if (!response.ok) {
+  const error = await response.json();
+  throw new Error(`BigQuery insert error: ${error.error?.message || 'Unknown error'}`);
+}
+
+res.status(201).json({ success: true, company_name });
     } catch (error) {
       console.error('Failed to create lead:', error);
       res.status(500).json({ error: error.message });
