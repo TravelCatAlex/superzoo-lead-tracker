@@ -2,11 +2,5 @@
   "buildCommand": "next build",
   "installCommand": "npm install",
   "outputDirectory": ".next",
-  "framework": "nextjs",
-  "functions": {
-    "api/**/*.js": {
-      "maxDuration": 60,
-      "memory": 1024
-    }
-  }
+  "framework": "nextjs"
 }
