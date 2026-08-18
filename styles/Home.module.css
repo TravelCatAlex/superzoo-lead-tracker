@@ -1,0 +1,393 @@
+.container {
+  max-width: 1000px;
+  margin: 0 auto;
+  padding: 1.5rem;
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+}
+
+.header {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  margin-bottom: 2rem;
+}
+
+.header h1 {
+  font-size: 28px;
+  font-weight: 600;
+  margin: 0 0 0.5rem;
+  color: #1a1a1a;
+}
+
+.header p {
+  font-size: 14px;
+  color: #666;
+  margin: 0;
+}
+
+.exportBtn {
+  padding: 0.75rem 1.5rem;
+  background: #378add;
+  color: white;
+  border: none;
+  border-radius: 6px;
+  cursor: pointer;
+  font-size: 14px;
+  font-weight: 500;
+  transition: background 0.2s;
+}
+
+.exportBtn:hover {
+  background: #185fa5;
+}
+
+.stats {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+  gap: 1rem;
+  margin-bottom: 2rem;
+}
+
+.statCard {
+  background: #f9f9f9;
+  border: 1px solid #e0e0e0;
+  border-radius: 8px;
+  padding: 1rem;
+}
+
+.statLabel {
+  font-size: 12px;
+  color: #666;
+  margin-bottom: 0.5rem;
+}
+
+.statValue {
+  font-size: 28px;
+  font-weight: 600;
+  color: #1a1a1a;
+}
+
+.controls {
+  display: flex;
+  gap: 1rem;
+  margin-bottom: 1.5rem;
+  flex-wrap: wrap;
+  align-items: center;
+}
+
+.filters {
+  display: flex;
+  gap: 0.75rem;
+  flex-wrap: wrap;
+}
+
+.filterBtn {
+  padding: 0.5rem 0.75rem;
+  border: 1px solid #d0d0d0;
+  border-radius: 6px;
+  background: white;
+  cursor: pointer;
+  font-size: 13px;
+  color: #333;
+  transition: all 0.2s;
+}
+
+.filterBtn:hover {
+  background: #f5f5f5;
+}
+
+.filterBtn.active {
+  background: #378add;
+  color: white;
+  border-color: #378add;
+}
+
+.searchBox {
+  padding: 0.75rem;
+  border: 1px solid #d0d0d0;
+  border-radius: 6px;
+  font-size: 14px;
+  width: 240px;
+  box-sizing: border-box;
+}
+
+.searchBox:focus {
+  outline: none;
+  border-color: #378add;
+  box-shadow: 0 0 0 2px rgba(55, 138, 221, 0.1);
+}
+
+.leadsList {
+  display: grid;
+  gap: 0.75rem;
+  max-height: 700px;
+  overflow-y: auto;
+}
+
+.companyCard {
+  background: white;
+  border: 1px solid #e0e0e0;
+  border-radius: 12px;
+  padding: 1rem;
+  transition: all 0.2s;
+}
+
+.companyCard:hover {
+  border-color: #b0b0b0;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.05);
+}
+
+.companyHeader {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  cursor: pointer;
+  gap: 1rem;
+}
+
+.companyHeader:hover {
+  opacity: 0.8;
+}
+
+.companyInfo {
+  flex: 1;
+  min-width: 0;
+}
+
+.companyName {
+  font-size: 15px;
+  font-weight: 600;
+  margin: 0;
+  color: #1a1a1a;
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  flex-wrap: wrap;
+}
+
+.badge {
+  font-size: 11px;
+  padding: 0.25rem 0.5rem;
+  border-radius: 3px;
+  font-weight: 500;
+}
+
+.badge.existing {
+  background: #c0dd97;
+  color: #27500a;
+}
+
+.badge.new {
+  background: #f5c4b3;
+  color: #712b13;
+}
+
+.companyMeta {
+  font-size: 12px;
+  color: #666;
+  margin: 0.5rem 0 0;
+}
+
+.statusBadge {
+  padding: 0.25rem 0.75rem;
+  border-radius: 3px;
+  font-size: 11px;
+  font-weight: 600;
+  text-transform: capitalize;
+  display: inline-block;
+}
+
+.statusBadge['need-followup'],
+.statusBadge.need-followup {
+  background: #f5c4b3;
+  color: #712b13;
+}
+
+.statusBadge.contacted {
+  background: #e9f3de;
+  color: #27500a;
+}
+
+.statusBadge.interested {
+  background: #b5d4f4;
+  color: #185fa5;
+}
+
+.statusBadge.proposal {
+  background: #f4c0d1;
+  color: #72243e;
+}
+
+.statusBadge.qualified {
+  background: #97c459;
+  color: #3b6d11;
+}
+
+.statusBadge.won {
+  background: #5dcaa5;
+  color: #085041;
+}
+
+.statusBadge.lost {
+  background: #888780;
+  color: #2c2c2a;
+}
+
+.expandIcon {
+  font-size: 16px;
+  transition: transform 0.2s;
+  flex-shrink: 0;
+}
+
+.expandIcon.expanded {
+  transform: rotate(180deg);
+}
+
+.contactsSection {
+  margin-top: 1rem;
+  padding-top: 1rem;
+  border-top: 1px solid #e0e0e0;
+  display: block;
+}
+
+.contact {
+  margin-bottom: 0.75rem;
+  padding: 0.75rem;
+  background: #f9f9f9;
+  border-radius: 6px;
+  font-size: 13px;
+}
+
+.contactName {
+  font-weight: 600;
+  color: #1a1a1a;
+  margin: 0;
+}
+
+.contactTitle {
+  color: #666;
+  margin: 0.25rem 0 0;
+}
+
+.contactEmail,
+.contactPhone {
+  color: #999;
+  margin: 0.25rem 0 0;
+  font-family: monospace;
+  font-size: 12px;
+}
+
+.notesSection {
+  margin-top: 1rem;
+}
+
+.notesLabel {
+  font-size: 13px;
+  font-weight: 600;
+  color: #1a1a1a;
+  display: block;
+  margin-bottom: 0.5rem;
+}
+
+.notesInput {
+  width: 100%;
+  min-height: 50px;
+  padding: 0.75rem;
+  border: 1px solid #d0d0d0;
+  border-radius: 6px;
+  font-size: 13px;
+  color: #1a1a1a;
+  background: white;
+  resize: vertical;
+  box-sizing: border-box;
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+}
+
+.notesInput:focus {
+  outline: none;
+  border-color: #378add;
+  box-shadow: 0 0 0 2px rgba(55, 138, 221, 0.1);
+}
+
+.statusSection {
+  margin-top: 1rem;
+}
+
+.statusSection label {
+  font-size: 13px;
+  font-weight: 600;
+  color: #1a1a1a;
+  display: block;
+  margin-bottom: 0.5rem;
+}
+
+.statusSelect {
+  padding: 0.5rem;
+  border: 1px solid #d0d0d0;
+  border-radius: 6px;
+  font-size: 13px;
+  background: white;
+  color: #1a1a1a;
+  cursor: pointer;
+  width: 100%;
+  box-sizing: border-box;
+}
+
+.statusSelect:focus {
+  outline: none;
+  border-color: #378add;
+  box-shadow: 0 0 0 2px rgba(55, 138, 221, 0.1);
+}
+
+.deleteBtn {
+  margin-top: 0.75rem;
+  padding: 0.5rem 1rem;
+  border: 1px solid #d0d0d0;
+  border-radius: 6px;
+  background: white;
+  cursor: pointer;
+  font-size: 13px;
+  color: #333;
+  transition: all 0.2s;
+}
+
+.deleteBtn:hover {
+  background: #fee;
+  border-color: #d00;
+  color: #d00;
+}
+
+.emptyState {
+  text-align: center;
+  padding: 2rem;
+  color: #666;
+}
+
+.loading {
+  padding: 2rem;
+  text-align: center;
+  color: #666;
+}
+
+@media (max-width: 768px) {
+  .container {
+    padding: 1rem;
+  }
+
+  .header {
+    flex-direction: column;
+    gap: 1rem;
+  }
+
+  .controls {
+    flex-direction: column;
+  }
+
+  .searchBox {
+    width: 100%;
+  }
+
+  .stats {
+    grid-template-columns: repeat(2, 1fr);
+  }
+}
