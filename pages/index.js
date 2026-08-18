@@ -234,10 +234,17 @@ export default function Dashboard() {
                 >
                   <div className={styles.companyInfo}>
                     <h3 className={styles.companyName}>
-                      {lead.name}
-                      <span className={`${styles.badge} ${lead.isExisting ? styles.existing : styles.new}`}>
-                        {lead.isExisting ? 'Existing customer' : 'New lead'}
-                      </span>
+  {lead.name}
+  <button
+    className={`${styles.badge} ${lead.isExisting ? styles.existing : styles.new}`}
+    onClick={(e) => {
+      e.stopPropagation();
+      updateLead(lead.name, 'isExisting', !lead.isExisting);
+    }}
+    style={{ cursor: 'pointer', border: 'none', fontSize: '11px', padding: '0.25rem 0.5rem', borderRadius: '3px', fontWeight: 500, flex: 'shrink: 0' }}
+  >
+    {lead.isExisting ? 'Existing customer' : 'New lead'}
+  </button>
                       {(lead.tags || []).map((tag, idx) => (
                         <span
                           key={idx}
@@ -279,12 +286,15 @@ export default function Dashboard() {
                             style={{ backgroundColor: tag.color }}
                           >
                             <span>{tag.name}</span>
-                            <button
-                              className={styles.removeTagBtn}
-                              onClick={() => removeTag(lead.name, tag.name)}
-                            >
-                              ×
-                            </button>
+                         <button
+  className={styles.removeTagBtn}
+  onClick={(e) => {
+    e.stopPropagation();
+    removeTag(lead.name, tag.name);
+  }}
+>
+  ×
+</button>
                           </div>
                         ))}
                       </div>
