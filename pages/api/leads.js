@@ -1,4 +1,5 @@
-import { queryBigQuery, insertBigQuery } from '../../lib/bigquery-auth.js';
+import { queryBigQuery } from '../../lib/bigquery-auth.js';
+import crypto from 'crypto';
 
 function escapeSql(str) {
   if (!str) return '';
@@ -64,7 +65,7 @@ export default async function handler(req, res) {
           notes: notes || '',
           is_existing: is_existing ? 'true' : 'false',
           contacts: JSON.stringify(contacts),
-          tags: tags && tags.length > 0 ? JSON.stringify(tags) : null,
+          tags: tags && tags.length > 0 ? JSON.stringify(tags) : '[]',
           created_at: now,
           updated_at: now,
         },
@@ -85,28 +86,48 @@ export default async function handler(req, res) {
       }
 
       const now = new Date().toISOString();
-      const safeCompanyName = escapeSql(company_name);
-      const safeStatus = escapeSql(status || 'need-followup');
-      const safeNotes = escapeSql(notes || '');
-      const safeContacts = escapeSql(JSON.stringify(contacts || []));
-      const tagsJson = tags && tags.length > 0 ? JSON.stringify(tags) : '[]';
-      const safeTags = escapeSql(tagsJson);
-      const safeIsExisting = is_existing ? 'true' : 'false';
+      
+      // Use a stable insertId based on company_name so BigQuery deduplicates
+      // This effectively replaces the old record with the new one
+      const insertId = `${company_name}`;
 
-      // Use UPDATE to modify the record
-      const updateSql = `
-        UPDATE \`${process.env.BIGQUERY_PROJECT_ID}.${process.env.BIGQUERY_DATASET || 'travel_cat'}.superzoo_leads\`
-        SET
-          status = '${safeStatus}',
-          notes = '${safeNotes}',
-          is_existing = '${safeIsExisting}',
-          contacts = '${safeContacts}',
-          tags = '${safeTags}',
-          updated_at = CURRENT_TIMESTAMP()
-        WHERE company_name = '${safeCompanyName}'
-      `;
+      const rows = [
+        {
+          insertId,
+          json: {
+            company_id: `${company_name.toLowerCase().replace(/\s+/g, '-')}`,
+            company_name,
+            status: status || 'need-followup',
+            notes: notes || '',
+            is_existing: is_existing ? 'true' : 'false',
+            contacts: JSON.stringify(contacts || []),
+            tags: tags && tags.length > 0 ? JSON.stringify(tags) : '[]',
+            created_at: created_at || now,
+            updated_at: now,
+          },
+        },
+      ];
 
-      await queryBigQuery(updateSql);
+      const response = await fetch(
+        `https://www.googleapis.com/bigquery/v2/projects/${process.env.BIGQUERY_PROJECT_ID}/datasets/${process.env.BIGQUERY_DATASET || 'travel_cat'}/tables/superzoo_leads/insertAll`,
+        {
+          method: 'POST',
+          headers: {
+            'Authorization': `Bearer ${await getBigQueryAccessToken()}`,
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            rows: rows,
+            skipInvalidRows: false,
+          }),
+        }
+      );
+
+      if (!response.ok) {
+        const error = await response.json();
+        throw new Error(`BigQuery insert error: ${error.error?.message || 'Unknown error'}`);
+      }
+
       res.status(200).json({ success: true, company_name });
     } catch (error) {
       console.error('Failed to update lead:', error);
@@ -135,4 +156,57 @@ export default async function handler(req, res) {
   } else {
     res.status(405).json({ error: 'Method not allowed' });
   }
+}
+
+async function getBigQueryAccessToken() {
+  const now = Math.floor(Date.now() / 1000);
+  const expiry = now + 3600;
+
+  const privateKey = process.env.GOOGLE_SERVICE_ACCOUNT_PRIVATE_KEY;
+  if (!privateKey) {
+    throw new Error('GOOGLE_SERVICE_ACCOUNT_PRIVATE_KEY not set');
+  }
+
+  const unescapedKey = privateKey.includes('\\n') 
+    ? privateKey.replace(/\\n/g, '\n') 
+    : privateKey;
+
+  const claimsObject = {
+    iss: process.env.GOOGLE_SERVICE_ACCOUNT_EMAIL,
+    scope: 'https://www.googleapis.com/auth/bigquery',
+    aud: 'https://oauth2.googleapis.com/token',
+    exp: expiry,
+    iat: now,
+  };
+
+  const header = {
+    alg: 'RS256',
+    typ: 'JWT',
+  };
+
+  const encodedHeader = Buffer.from(JSON.stringify(header)).toString('base64url');
+  const encodedClaims = Buffer.from(JSON.stringify(claimsObject)).toString('base64url');
+  const signatureInput = `${encodedHeader}.${encodedClaims}`;
+
+  const signer = crypto.createSign('RSA-SHA256');
+  signer.update(signatureInput);
+  const signature = signer.sign(unescapedKey, 'base64url');
+
+  const jwt = `${signatureInput}.${signature}`;
+
+  const tokenResponse = await fetch('https://oauth2.googleapis.com/token', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+    body: new URLSearchParams({
+      grant_type: 'urn:ietf:params:oauth:grant-type:jwt-bearer',
+      assertion: jwt,
+    }).toString(),
+  });
+
+  const tokenData = await tokenResponse.json();
+  if (!tokenData.access_token) {
+    throw new Error(`Failed to get BigQuery token: ${tokenData.error_description}`);
+  }
+
+  return tokenData.access_token;
 }
