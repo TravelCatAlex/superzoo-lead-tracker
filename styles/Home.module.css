@@ -197,10 +197,47 @@
   display: inline-block;
 }
 
-.statusBadge['need-followup'],
-.statusBadge.need-followup {
+.statusBadge {
+  padding: 0.25rem 0.75rem;
+  border-radius: 3px;
+  font-size: 11px;
+  font-weight: 600;
+  text-transform: capitalize;
+}
+
+.needFollowup {
   background: #f5c4b3;
   color: #712b13;
+}
+
+.contacted {
+  background: #e9f3de;
+  color: #27500a;
+}
+
+.interested {
+  background: #b5d4f4;
+  color: #185fa5;
+}
+
+.proposal {
+  background: #f4c0d1;
+  color: #72243e;
+}
+
+.qualified {
+  background: #97c459;
+  color: #3b6d11;
+}
+
+.won {
+  background: #5dcaa5;
+  color: #085041;
+}
+
+.lost {
+  background: #888780;
+  color: #2c2c2a;
 }
 
 .statusBadge.contacted {
