@@ -53,8 +53,15 @@ export default function Dashboard() {
     const lead = leads[companyName];
     const updated = { ...lead, [field]: value };
 
+    // Optimistic update - update UI immediately
+    setLeads(prev => ({
+      ...prev,
+      [companyName]: updated,
+    }));
+
+    // Then sync to backend
     try {
-      const res = await fetch('/api/leads', {
+      await fetch('/api/leads', {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -62,15 +69,13 @@ export default function Dashboard() {
           ...updated,
         }),
       });
-
-      if (res.ok) {
-        setLeads(prev => ({
-          ...prev,
-          [companyName]: updated,
-        }));
-      }
     } catch (error) {
       console.error('Failed to update lead:', error);
+      // Revert on error
+      setLeads(prev => ({
+        ...prev,
+        [companyName]: lead,
+      }));
     }
   }
 
@@ -78,7 +83,6 @@ export default function Dashboard() {
     const lead = leads[companyName];
     const tags = lead.tags || [];
     
-    // Check if tag already exists
     if (tags.some(t => t.name === tagName)) {
       return;
     }
@@ -234,17 +238,10 @@ export default function Dashboard() {
                 >
                   <div className={styles.companyInfo}>
                     <h3 className={styles.companyName}>
-  {lead.name}
-  <button
-    className={`${styles.badge} ${lead.isExisting ? styles.existing : styles.new}`}
-    onClick={(e) => {
-      e.stopPropagation();
-      updateLead(lead.name, 'isExisting', !lead.isExisting);
-    }}
-    style={{ cursor: 'pointer', border: 'none', fontSize: '11px', padding: '0.25rem 0.5rem', borderRadius: '3px', fontWeight: 500, flex: 'shrink: 0' }}
-  >
-    {lead.isExisting ? 'Existing customer' : 'New lead'}
-  </button>
+                      {lead.name}
+                      <span className={`${styles.badge} ${lead.isExisting ? styles.existing : styles.new}`}>
+                        {lead.isExisting ? 'Existing' : 'New'}
+                      </span>
                       {(lead.tags || []).map((tag, idx) => (
                         <span
                           key={idx}
@@ -276,6 +273,18 @@ export default function Dashboard() {
                       </div>
                     ))}
 
+                    <div className={styles.customerTypeSection}>
+                      <label className={styles.checkboxLabel}>
+                        <input
+                          type="checkbox"
+                          checked={lead.isExisting}
+                          onChange={(e) => updateLead(lead.name, 'isExisting', e.target.checked)}
+                          className={styles.checkbox}
+                        />
+                        <span>Mark as existing customer</span>
+                      </label>
+                    </div>
+
                     <div className={styles.tagsSection}>
                       <label className={styles.tagsLabel}>Tags</label>
                       <div className={styles.tagsContainer}>
@@ -286,15 +295,15 @@ export default function Dashboard() {
                             style={{ backgroundColor: tag.color }}
                           >
                             <span>{tag.name}</span>
-                         <button
-  className={styles.removeTagBtn}
-  onClick={(e) => {
-    e.stopPropagation();
-    removeTag(lead.name, tag.name);
-  }}
->
-  ×
-</button>
+                            <button
+                              className={styles.removeTagBtn}
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                removeTag(lead.name, tag.name);
+                              }}
+                            >
+                              ×
+                            </button>
                           </div>
                         ))}
                       </div>
