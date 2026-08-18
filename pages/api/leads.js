@@ -50,7 +50,7 @@ export default async function handler(req, res) {
     }
   } else if (req.method === 'POST') {
     try {
-     const { company_name, status, notes, isExisting, contacts, tags } = req.body;
+      const { company_name, status, notes, isExisting, contacts, tags } = req.body;
 
       if (!company_name || !Array.isArray(contacts)) {
         return res.status(400).json({ error: 'company_name and contacts array required' });
@@ -59,46 +59,49 @@ export default async function handler(req, res) {
       const now = new Date().toISOString();
       const rows = [
         {
-          company_id: `${company_name.toLowerCase().replace(/\s+/g, '-')}-${Date.now()}`,
-          company_name,
-          status: status || 'need-followup',
-          notes: notes || '',
-          is_existing: isExisting ? 'true' : 'false',
-          contacts: JSON.stringify(contacts),
-          tags: tags && tags.length > 0 ? JSON.stringify(tags) : '[]',
-          created_at: now,
-          updated_at: now,
+          insertId: `${company_name}-${Date.now()}`,
+          json: {
+            company_id: `${company_name.toLowerCase().replace(/\s+/g, '-')}-${Date.now()}`,
+            company_name,
+            status: status || 'need-followup',
+            notes: notes || '',
+            is_existing: isExisting ? 'true' : 'false',
+            contacts: JSON.stringify(contacts),
+            tags: tags && tags.length > 0 ? JSON.stringify(tags) : '[]',
+            created_at: now,
+            updated_at: now,
+          },
         },
       ];
 
       const response = await fetch(
-  `https://www.googleapis.com/bigquery/v2/projects/${process.env.BIGQUERY_PROJECT_ID}/datasets/${process.env.BIGQUERY_DATASET || 'travel_cat'}/tables/superzoo_leads/insertAll`,
-  {
-    method: 'POST',
-    headers: {
-      'Authorization': `Bearer ${await getBigQueryAccessToken()}`,
-      'Content-Type': 'application/json',
-    },
-    body: JSON.stringify({
-      rows: rows,
-      skipInvalidRows: false,
-    }),
-  }
-);
+        `https://www.googleapis.com/bigquery/v2/projects/${process.env.BIGQUERY_PROJECT_ID}/datasets/${process.env.BIGQUERY_DATASET || 'travel_cat'}/tables/superzoo_leads/insertAll`,
+        {
+          method: 'POST',
+          headers: {
+            'Authorization': `Bearer ${await getBigQueryAccessToken()}`,
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            rows: rows,
+            skipInvalidRows: false,
+          }),
+        }
+      );
 
-if (!response.ok) {
-  const error = await response.json();
-  throw new Error(`BigQuery insert error: ${error.error?.message || 'Unknown error'}`);
-}
+      if (!response.ok) {
+        const error = await response.json();
+        throw new Error(`BigQuery insert error: ${error.error?.message || 'Unknown error'}`);
+      }
 
-res.status(201).json({ success: true, company_name });
+      res.status(201).json({ success: true, company_name });
     } catch (error) {
       console.error('Failed to create lead:', error);
       res.status(500).json({ error: error.message });
     }
   } else if (req.method === 'PUT') {
     try {
-   const { company_name, status, notes, tags, isExisting, contacts, created_at } = req.body;
+      const { company_name, status, notes, tags, isExisting, contacts, created_at } = req.body;
 
       if (!company_name) {
         return res.status(400).json({ error: 'company_name required' });
@@ -118,7 +121,7 @@ res.status(201).json({ success: true, company_name });
             company_name,
             status: status || 'need-followup',
             notes: notes || '',
-           is_existing: isExisting ? 'true' : 'false',
+            is_existing: isExisting ? 'true' : 'false',
             contacts: JSON.stringify(contacts || []),
             tags: tags && tags.length > 0 ? JSON.stringify(tags) : '[]',
             created_at: created_at || now,
