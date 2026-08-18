@@ -63,7 +63,7 @@ export default async function handler(req, res) {
           company_name,
           status: status || 'need-followup',
           notes: notes || '',
-          is_existing: is_existing ? 'true' : 'false',
+          is_existing: isExisting ? 'true' : 'false',
           contacts: JSON.stringify(contacts),
           tags: tags && tags.length > 0 ? JSON.stringify(tags) : '[]',
           created_at: now,
@@ -79,7 +79,7 @@ export default async function handler(req, res) {
     }
   } else if (req.method === 'PUT') {
     try {
-      const { company_name, status, notes, tags, is_existing, contacts, created_at } = req.body;
+   const { company_name, status, notes, tags, isExisting, contacts, created_at } = req.body;
 
       if (!company_name) {
         return res.status(400).json({ error: 'company_name required' });
@@ -99,7 +99,7 @@ export default async function handler(req, res) {
             company_name,
             status: status || 'need-followup',
             notes: notes || '',
-            is_existing: is_existing ? 'true' : 'false',
+           is_existing: isExisting ? 'true' : 'false',
             contacts: JSON.stringify(contacts || []),
             tags: tags && tags.length > 0 ? JSON.stringify(tags) : '[]',
             created_at: created_at || now,
