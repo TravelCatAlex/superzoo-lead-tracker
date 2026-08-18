@@ -2,12 +2,36 @@ import { useEffect, useState } from 'react';
 import Head from 'next/head';
 import styles from '../styles/Home.module.css';
 
+const TAG_COLORS = {
+  'hot-lead': '#FF6B6B',
+  'decision-maker': '#4ECDC4',
+  'needs-sample': '#45B7D1',
+  'interested': '#96CEB4',
+  'follow-up': '#FFEAA7',
+  'pricing-pending': '#DDA15E',
+  'competitor': '#BC6C25',
+  'seasonal': '#A8DADC',
+};
+
+const COMMON_TAGS = [
+  { name: 'hot-lead', color: TAG_COLORS['hot-lead'] },
+  { name: 'decision-maker', color: TAG_COLORS['decision-maker'] },
+  { name: 'needs-sample', color: TAG_COLORS['needs-sample'] },
+  { name: 'interested', color: TAG_COLORS['interested'] },
+  { name: 'follow-up', color: TAG_COLORS['follow-up'] },
+  { name: 'pricing-pending', color: TAG_COLORS['pricing-pending'] },
+  { name: 'competitor', color: TAG_COLORS['competitor'] },
+  { name: 'seasonal', color: TAG_COLORS['seasonal'] },
+];
+
 export default function Dashboard() {
   const [leads, setLeads] = useState({});
   const [loading, setLoading] = useState(true);
   const [filter, setFilter] = useState('all');
   const [search, setSearch] = useState('');
   const [expandedCompany, setExpandedCompany] = useState(null);
+  const [newTag, setNewTag] = useState('');
+  const [showTagSuggestions, setShowTagSuggestions] = useState(null);
 
   useEffect(() => {
     fetchLeads();
@@ -48,6 +72,27 @@ export default function Dashboard() {
     } catch (error) {
       console.error('Failed to update lead:', error);
     }
+  }
+
+  function addTag(companyName, tagName, tagColor) {
+    const lead = leads[companyName];
+    const tags = lead.tags || [];
+    
+    // Check if tag already exists
+    if (tags.some(t => t.name === tagName)) {
+      return;
+    }
+    
+    const newTags = [...tags, { name: tagName, color: tagColor }];
+    updateLead(companyName, 'tags', newTags);
+    setNewTag('');
+    setShowTagSuggestions(null);
+  }
+
+  function removeTag(companyName, tagName) {
+    const lead = leads[companyName];
+    const tags = (lead.tags || []).filter(t => t.name !== tagName);
+    updateLead(companyName, 'tags', tags);
   }
 
   async function deleteLead(companyName) {
@@ -118,11 +163,12 @@ export default function Dashboard() {
             <p>Manage and track all leads from August 2026 trade show</p>
           </div>
           <button className={styles.exportBtn} onClick={() => {
-            const csv = 'Company,Contacts,Status,Notes\n' + 
+            const csv = 'Company,Contacts,Status,Tags,Notes\n' + 
               filtered.map(lead => {
                 const contacts = lead.contacts.map(c => `${c.name} (${c.title})`).join('; ');
+                const tags = (lead.tags || []).map(t => t.name).join(',');
                 const notes = (lead.notes || '').replace(/"/g, '""');
-                return `"${lead.name}","${contacts}","${lead.status}","${notes}"`;
+                return `"${lead.name}","${contacts}","${lead.status}","${tags}","${notes}"`;
               }).join('\n');
             
             const blob = new Blob([csv], { type: 'text/csv' });
@@ -192,6 +238,15 @@ export default function Dashboard() {
                       <span className={`${styles.badge} ${lead.isExisting ? styles.existing : styles.new}`}>
                         {lead.isExisting ? 'Existing customer' : 'New lead'}
                       </span>
+                      {(lead.tags || []).map((tag, idx) => (
+                        <span
+                          key={idx}
+                          className={styles.tagBadge}
+                          style={{ backgroundColor: tag.color }}
+                        >
+                          {tag.name}
+                        </span>
+                      ))}
                     </h3>
                     <p className={styles.companyMeta}>
                       {lead.contacts?.length || 0} contact{lead.contacts?.length !== 1 ? 's' : ''} ·{' '}
@@ -213,6 +268,73 @@ export default function Dashboard() {
                         {contact.phone && <p className={styles.contactPhone}>{contact.phone}</p>}
                       </div>
                     ))}
+
+                    <div className={styles.tagsSection}>
+                      <label className={styles.tagsLabel}>Tags</label>
+                      <div className={styles.tagsContainer}>
+                        {(lead.tags || []).map((tag, idx) => (
+                          <div
+                            key={idx}
+                            className={styles.tag}
+                            style={{ backgroundColor: tag.color }}
+                          >
+                            <span>{tag.name}</span>
+                            <button
+                              className={styles.removeTagBtn}
+                              onClick={() => removeTag(lead.name, tag.name)}
+                            >
+                              ×
+                            </button>
+                          </div>
+                        ))}
+                      </div>
+                      
+                      <div className={styles.addTagSection}>
+                        <input
+                          type="text"
+                          className={styles.tagInput}
+                          placeholder="Add tag..."
+                          value={newTag}
+                          onChange={(e) => {
+                            setNewTag(e.target.value);
+                            setShowTagSuggestions(lead.name);
+                          }}
+                          onFocus={() => setShowTagSuggestions(lead.name)}
+                        />
+                        {showTagSuggestions === lead.name && (
+                          <div className={styles.tagSuggestions}>
+                            {COMMON_TAGS.filter(t => 
+                              t.name.includes(newTag.toLowerCase()) &&
+                              !(lead.tags || []).some(existing => existing.name === t.name)
+                            ).map((tag, idx) => (
+                              <button
+                                key={idx}
+                                className={styles.tagSuggestion}
+                                onClick={() => addTag(lead.name, tag.name, tag.color)}
+                              >
+                                <span
+                                  className={styles.colorDot}
+                                  style={{ backgroundColor: tag.color }}
+                                />
+                                {tag.name}
+                              </button>
+                            ))}
+                            {newTag && !COMMON_TAGS.some(t => t.name === newTag) && (
+                              <button
+                                className={styles.tagSuggestion}
+                                onClick={() => addTag(lead.name, newTag, '#95E1D3')}
+                              >
+                                <span
+                                  className={styles.colorDot}
+                                  style={{ backgroundColor: '#95E1D3' }}
+                                />
+                                Create "{newTag}"
+                              </button>
+                            )}
+                          </div>
+                        )}
+                      </div>
+                    </div>
 
                     <div className={styles.notesSection}>
                       <label className={styles.notesLabel}>Notes</label>
