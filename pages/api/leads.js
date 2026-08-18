@@ -79,32 +79,52 @@ export default async function handler(req, res) {
         return res.status(400).json({ error: 'company_name required' });
       }
 
-      const sql = `
-        DELETE FROM \`${process.env.BIGQUERY_PROJECT_ID}.${process.env.BIGQUERY_DATASET || 'travel_cat'}.superzoo_leads\`
-        WHERE company_name = '${company_name.replace(/'/g, "\\'")}'
-      `;
-
-      await queryBigQuery(sql);
-
       const contacts = req.body.contacts || [];
       const is_existing = req.body.is_existing || false;
-
       const now = new Date().toISOString();
-      const rows = [
-        {
-          company_id: `${company_name.toLowerCase().replace(/\s+/g, '-')}-${Date.now()}`,
-          company_name,
-          status: status || 'need-followup',
-          notes: notes || '',
-          is_existing: is_existing ? 'true' : 'false',
-          contacts: JSON.stringify(contacts),
-          tags: tags ? JSON.stringify(tags) : null,
-          created_at: req.body.created_at || now,
-          updated_at: now,
-        },
-      ];
 
-      await insertBigQuery('superzoo_leads', rows);
+      // Use MERGE to avoid streaming buffer conflicts
+      const mergeSql = `
+        MERGE INTO \`${process.env.BIGQUERY_PROJECT_ID}.${process.env.BIGQUERY_DATASET || 'travel_cat'}.superzoo_leads\` T
+        USING (
+          SELECT 
+            '${company_name.replace(/'/g, "\\'")}' as company_name
+        ) S
+        ON T.company_name = S.company_name
+        WHEN MATCHED THEN
+          UPDATE SET 
+            status = '${(status || 'need-followup').replace(/'/g, "\\'")}',
+            notes = '${(notes || '').replace(/'/g, "\\'")}',
+            is_existing = '${is_existing ? 'true' : 'false'}',
+            contacts = '${JSON.stringify(contacts).replace(/'/g, "\\'")}',
+            tags = ${tags ? `'${JSON.stringify(tags).replace(/'/g, "\\'")}'` : 'NULL'},
+            updated_at = CURRENT_TIMESTAMP()
+        WHEN NOT MATCHED THEN
+          INSERT (
+            company_id,
+            company_name,
+            status,
+            notes,
+            is_existing,
+            contacts,
+            tags,
+            created_at,
+            updated_at
+          )
+          VALUES (
+            '${company_name.toLowerCase().replace(/\s+/g, '-')}-${Date.now()}',
+            '${company_name.replace(/'/g, "\\'")}',
+            '${(status || 'need-followup').replace(/'/g, "\\'")}',
+            '${(notes || '').replace(/'/g, "\\'")}',
+            '${is_existing ? 'true' : 'false'}',
+            '${JSON.stringify(contacts).replace(/'/g, "\\'")}',
+            ${tags ? `'${JSON.stringify(tags).replace(/'/g, "\\'")}'` : 'NULL'},
+            CURRENT_TIMESTAMP(),
+            CURRENT_TIMESTAMP()
+          )
+      `;
+
+      await queryBigQuery(mergeSql);
       res.status(200).json({ success: true, company_name });
     } catch (error) {
       console.error('Failed to update lead:', error);
