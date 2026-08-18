@@ -8,11 +8,5 @@
       "maxDuration": 60,
       "memory": 1024
     }
-  },
-  "env": [
-    "GOOGLE_SERVICE_ACCOUNT_EMAIL",
-    "GOOGLE_SERVICE_ACCOUNT_PRIVATE_KEY",
-    "BIGQUERY_PROJECT_ID",
-    "BIGQUERY_DATASET"
-  ]
+  }
 }
