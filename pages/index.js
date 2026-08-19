@@ -3,6 +3,8 @@ import Head from 'next/head';
 import styles from '../styles/Home.module.css';
 
 const TAG_COLORS = {
+  'Existing Customer': '#c0dd97',
+  'New Lead': '#f5c4b3',
   'hot-lead': '#FF6B6B',
   'decision-maker': '#4ECDC4',
   'needs-sample': '#45B7D1',
@@ -14,6 +16,8 @@ const TAG_COLORS = {
 };
 
 const COMMON_TAGS = [
+  { name: 'Existing Customer', color: TAG_COLORS['Existing Customer'] },
+  { name: 'New Lead', color: TAG_COLORS['New Lead'] },
   { name: 'hot-lead', color: TAG_COLORS['hot-lead'] },
   { name: 'decision-maker', color: TAG_COLORS['decision-maker'] },
   { name: 'needs-sample', color: TAG_COLORS['needs-sample'] },
@@ -125,13 +129,30 @@ export default function Dashboard() {
     let filtered = Object.values(leads);
 
     if (search) {
-      filtered = filtered.filter(lead =>
-        lead.name.toLowerCase().includes(search.toLowerCase())
-      );
+      const searchLower = search.toLowerCase();
+      filtered = filtered.filter(lead => {
+        // Search by company name
+        if (lead.name.toLowerCase().includes(searchLower)) {
+          return true;
+        }
+        // Search by tag names
+        if ((lead.tags || []).some(tag => tag.name.toLowerCase().includes(searchLower))) {
+          return true;
+        }
+        // Search by contact names
+        if ((lead.contacts || []).some(contact => 
+          contact.name.toLowerCase().includes(searchLower)
+        )) {
+          return true;
+        }
+        return false;
+      });
     }
 
     if (filter === 'existing') {
-      filtered = filtered.filter(lead => lead.isExisting);
+      filtered = filtered.filter(lead => 
+        (lead.tags || []).some(t => t.name === 'Existing Customer')
+      );
     } else if (filter !== 'all') {
       filtered = filtered.filter(lead => lead.status === filter);
     }
@@ -143,7 +164,9 @@ export default function Dashboard() {
   const stats = {
     total: Object.keys(leads).length,
     followup: Object.values(leads).filter(l => l.status === 'need-followup').length,
-    existing: Object.values(leads).filter(l => l.isExisting).length,
+    existing: Object.values(leads).filter(l => 
+      (l.tags || []).some(t => t.name === 'Existing Customer')
+    ).length,
     contacts: Object.values(leads).reduce((sum, l) => sum + (l.contacts?.length || 0), 0),
   };
 
@@ -213,14 +236,14 @@ export default function Dashboard() {
                 className={`${styles.filterBtn} ${filter === f ? styles.active : ''}`}
                 onClick={() => setFilter(f)}
               >
-                {f === 'need-followup' ? 'Need follow-up' : f === 'all' ? 'All leads' : f.charAt(0).toUpperCase() + f.slice(1)}
+                {f === 'need-followup' ? 'Need follow-up' : f === 'all' ? 'All leads' : f === 'existing' ? 'Existing' : f.charAt(0).toUpperCase() + f.slice(1)}
               </button>
             ))}
           </div>
           <input
             type="text"
             className={styles.searchBox}
-            placeholder="Search company..."
+            placeholder="Search by company, tag, or contact..."
             value={search}
             onChange={e => setSearch(e.target.value)}
           />
@@ -230,168 +253,156 @@ export default function Dashboard() {
           {filtered.length === 0 ? (
             <div className={styles.emptyState}>No leads match your search</div>
           ) : (
-            filtered.map(lead => (
-              <div key={lead.name} className={styles.companyCard}>
-                <div
-                  className={styles.companyHeader}
-                  onClick={() => setExpandedCompany(expandedCompany === lead.name ? null : lead.name)}
-                >
-                  <div className={styles.companyInfo}>
-                    <h3 className={styles.companyName}>
-                      {lead.name}
-                      <span className={`${styles.badge} ${lead.isExisting ? styles.existing : styles.new}`}>
-                        {lead.isExisting ? 'Existing' : 'New'}
-                      </span>
-                      {(lead.tags || []).map((tag, idx) => (
-                        <span
-                          key={idx}
-                          className={styles.tagBadge}
-                          style={{ backgroundColor: tag.color }}
-                        >
-                          {tag.name}
-                        </span>
-                      ))}
-                    </h3>
-                    <p className={styles.companyMeta}>
-                      {lead.contacts?.length || 0} contact{lead.contacts?.length !== 1 ? 's' : ''} ·{' '}
-                      <span className={`${styles.statusBadge} ${styles[lead.status]}`}>
-                        {lead.status.replace('-', ' ')}
-                      </span>
-                    </p>
-                  </div>
-                  <span className={`${styles.expandIcon} ${expandedCompany === lead.name ? styles.expanded : ''}`}>▼</span>
-                </div>
-
-                {expandedCompany === lead.name && (
-                  <div className={styles.contactsSection}>
-                    {lead.contacts?.map((contact, idx) => (
-                      <div key={idx} className={styles.contact}>
-                        <p className={styles.contactName}>{contact.name}</p>
-                        {contact.title && <p className={styles.contactTitle}>{contact.title}</p>}
-                        {contact.email && <p className={styles.contactEmail}>{contact.email}</p>}
-                        {contact.phone && <p className={styles.contactPhone}>{contact.phone}</p>}
-                      </div>
-                    ))}
-
-                    <div className={styles.customerTypeSection}>
-                      <label className={styles.checkboxLabel}>
-                        <input
-                          type="checkbox"
-                          checked={lead.isExisting}
-                          onChange={(e) => updateLead(lead.name, 'isExisting', e.target.checked)}
-                          className={styles.checkbox}
-                        />
-                        <span>Mark as existing customer</span>
-                      </label>
-                    </div>
-
-                    <div className={styles.tagsSection}>
-                      <label className={styles.tagsLabel}>Tags</label>
-                      <div className={styles.tagsContainer}>
+            filtered.map(lead => {
+              const hasExistingCustomerTag = (lead.tags || []).some(t => t.name === 'Existing Customer');
+              return (
+                <div key={lead.name} className={styles.companyCard}>
+                  <div
+                    className={styles.companyHeader}
+                    onClick={() => setExpandedCompany(expandedCompany === lead.name ? null : lead.name)}
+                  >
+                    <div className={styles.companyInfo}>
+                      <h3 className={styles.companyName}>
+                        {lead.name}
                         {(lead.tags || []).map((tag, idx) => (
-                          <div
+                          <span
                             key={idx}
-                            className={styles.tag}
+                            className={styles.tagBadge}
                             style={{ backgroundColor: tag.color }}
                           >
-                            <span>{tag.name}</span>
-                            <button
-                              className={styles.removeTagBtn}
-                              onClick={(e) => {
-                                e.stopPropagation();
-                                removeTag(lead.name, tag.name);
-                              }}
-                            >
-                              ×
-                            </button>
-                          </div>
+                            {tag.name}
+                          </span>
                         ))}
-                      </div>
-                      
-                      <div className={styles.addTagSection}>
-                        <input
-                          type="text"
-                          className={styles.tagInput}
-                          placeholder="Add tag..."
-                          value={newTag}
-                          onChange={(e) => {
-                            setNewTag(e.target.value);
-                            setShowTagSuggestions(lead.name);
-                          }}
-                          onFocus={() => setShowTagSuggestions(lead.name)}
-                        />
-                        {showTagSuggestions === lead.name && (
-                          <div className={styles.tagSuggestions}>
-                            {COMMON_TAGS.filter(t => 
-                              t.name.includes(newTag.toLowerCase()) &&
-                              !(lead.tags || []).some(existing => existing.name === t.name)
-                            ).map((tag, idx) => (
-                              <button
-                                key={idx}
-                                className={styles.tagSuggestion}
-                                onClick={() => addTag(lead.name, tag.name, tag.color)}
-                              >
-                                <span
-                                  className={styles.colorDot}
-                                  style={{ backgroundColor: tag.color }}
-                                />
-                                {tag.name}
-                              </button>
-                            ))}
-                            {newTag && !COMMON_TAGS.some(t => t.name === newTag) && (
-                              <button
-                                className={styles.tagSuggestion}
-                                onClick={() => addTag(lead.name, newTag, '#95E1D3')}
-                              >
-                                <span
-                                  className={styles.colorDot}
-                                  style={{ backgroundColor: '#95E1D3' }}
-                                />
-                                Create "{newTag}"
-                              </button>
-                            )}
-                          </div>
-                        )}
-                      </div>
+                      </h3>
+                      <p className={styles.companyMeta}>
+                        {lead.contacts?.length || 0} contact{lead.contacts?.length !== 1 ? 's' : ''} ·{' '}
+                        <span className={`${styles.statusBadge} ${styles[lead.status]}`}>
+                          {lead.status.replace('-', ' ')}
+                        </span>
+                      </p>
                     </div>
-
-                    <div className={styles.notesSection}>
-                      <label className={styles.notesLabel}>Notes</label>
-                      <textarea
-                        className={styles.notesInput}
-                        placeholder="Follow-up strategy, product interest, next steps..."
-                        value={lead.notes || ''}
-                        onChange={e => updateLead(lead.name, 'notes', e.target.value)}
-                      />
-                    </div>
-
-                    <div className={styles.statusSection}>
-                      <label>Status</label>
-                      <select
-                        className={styles.statusSelect}
-                        value={lead.status || 'need-followup'}
-                        onChange={e => updateLead(lead.name, 'status', e.target.value)}
-                      >
-                        <option value="need-followup">Need follow-up</option>
-                        <option value="contacted">Contacted</option>
-                        <option value="interested">Interested</option>
-                        <option value="proposal">Proposal sent</option>
-                        <option value="qualified">Qualified</option>
-                        <option value="won">Won</option>
-                        <option value="lost">Lost</option>
-                      </select>
-                    </div>
-
-                    <button
-                      className={styles.deleteBtn}
-                      onClick={() => deleteLead(lead.name)}
-                    >
-                      Delete
-                    </button>
+                    <span className={`${styles.expandIcon} ${expandedCompany === lead.name ? styles.expanded : ''}`}>▼</span>
                   </div>
-                )}
-              </div>
-            ))
+
+                  {expandedCompany === lead.name && (
+                    <div className={styles.contactsSection}>
+                      {lead.contacts?.map((contact, idx) => (
+                        <div key={idx} className={styles.contact}>
+                          <p className={styles.contactName}>{contact.name}</p>
+                          {contact.title && <p className={styles.contactTitle}>{contact.title}</p>}
+                          {contact.email && <p className={styles.contactEmail}>{contact.email}</p>}
+                          {contact.phone && <p className={styles.contactPhone}>{contact.phone}</p>}
+                        </div>
+                      ))}
+
+                      <div className={styles.tagsSection}>
+                        <label className={styles.tagsLabel}>Tags</label>
+                        <div className={styles.tagsContainer}>
+                          {(lead.tags || []).map((tag, idx) => (
+                            <div
+                              key={idx}
+                              className={styles.tag}
+                              style={{ backgroundColor: tag.color }}
+                            >
+                              <span>{tag.name}</span>
+                              <button
+                                className={styles.removeTagBtn}
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  removeTag(lead.name, tag.name);
+                                }}
+                              >
+                                ×
+                              </button>
+                            </div>
+                          ))}
+                        </div>
+                        
+                        <div className={styles.addTagSection}>
+                          <input
+                            type="text"
+                            className={styles.tagInput}
+                            placeholder="Add tag..."
+                            value={newTag}
+                            onChange={(e) => {
+                              setNewTag(e.target.value);
+                              setShowTagSuggestions(lead.name);
+                            }}
+                            onFocus={() => setShowTagSuggestions(lead.name)}
+                          />
+                          {showTagSuggestions === lead.name && (
+                            <div className={styles.tagSuggestions}>
+                              {COMMON_TAGS.filter(t => 
+                                t.name.toLowerCase().includes(newTag.toLowerCase()) &&
+                                !(lead.tags || []).some(existing => existing.name === t.name)
+                              ).map((tag, idx) => (
+                                <button
+                                  key={idx}
+                                  className={styles.tagSuggestion}
+                                  onClick={() => addTag(lead.name, tag.name, tag.color)}
+                                >
+                                  <span
+                                    className={styles.colorDot}
+                                    style={{ backgroundColor: tag.color }}
+                                  />
+                                  {tag.name}
+                                </button>
+                              ))}
+                              {newTag && !COMMON_TAGS.some(t => t.name.toLowerCase() === newTag.toLowerCase()) && (
+                                <button
+                                  className={styles.tagSuggestion}
+                                  onClick={() => addTag(lead.name, newTag, '#95E1D3')}
+                                >
+                                  <span
+                                    className={styles.colorDot}
+                                    style={{ backgroundColor: '#95E1D3' }}
+                                  />
+                                  Create "{newTag}"
+                                </button>
+                              )}
+                            </div>
+                          )}
+                        </div>
+                      </div>
+
+                      <div className={styles.notesSection}>
+                        <label className={styles.notesLabel}>Notes</label>
+                        <textarea
+                          className={styles.notesInput}
+                          placeholder="Follow-up strategy, product interest, next steps..."
+                          value={lead.notes || ''}
+                          onChange={e => updateLead(lead.name, 'notes', e.target.value)}
+                        />
+                      </div>
+
+                      <div className={styles.statusSection}>
+                        <label>Status</label>
+                        <select
+                          className={styles.statusSelect}
+                          value={lead.status || 'need-followup'}
+                          onChange={e => updateLead(lead.name, 'status', e.target.value)}
+                        >
+                          <option value="need-followup">Need follow-up</option>
+                          <option value="contacted">Contacted</option>
+                          <option value="interested">Interested</option>
+                          <option value="proposal">Proposal sent</option>
+                          <option value="qualified">Qualified</option>
+                          <option value="won">Won</option>
+                          <option value="lost">Lost</option>
+                        </select>
+                      </div>
+
+                      <button
+                        className={styles.deleteBtn}
+                        onClick={() => deleteLead(lead.name)}
+                      >
+                        Delete
+                      </button>
+                    </div>
+                  )}
+                </div>
+              );
+            })
           )}
         </div>
       </div>
