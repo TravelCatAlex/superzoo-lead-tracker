@@ -59,9 +59,9 @@ export default async function handler(req, res) {
       const now = new Date().toISOString();
       const rows = [
         {
-          insertId: `${company_name}-${Date.now()}`,
+          insertId: company_name,
           json: {
-            company_id: `${company_name.toLowerCase().replace(/\s+/g, '-')}-${Date.now()}`,
+            company_id: `${company_name.toLowerCase().replace(/\s+/g, '-')}`,
             company_name,
             status: status || 'need-followup',
             notes: notes || '',
